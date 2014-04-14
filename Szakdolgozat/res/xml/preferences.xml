@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <EditTextPreference
+        android:dialogTitle="@string/max_walk_distance_dialogtitle"
+        android:key="max_walk_distance_preference"
+        android:summary="@string/max_walk_distance_summary"
+        android:title="@string/max_walk_distance_title"
+        android:inputType="number"
+        android:defaultValue="500" />
+
+    <EditTextPreference
+        android:dialogTitle="@string/max_search_time_dialogtitle"
+        android:key="max_search_time_preference"
+        android:summary="@string/max_search_time_summary"
+        android:title="@string/max_search_time_title"
+        android:inputType="number"
+        android:defaultValue="10"/>
+    
+</PreferenceScreen>

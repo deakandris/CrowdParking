@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">CrowdParking</string>
+    <string name="title_section1">Map</string>
+    <string name="title_section2">Settings</string>
+    <string name="title_section3">Section 3</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="action_example">Example action</string>
+    <string name="action_settings">Settings</string>
+    <string name="max_walk_distance_postfix">meter</string>
+    <string name="max_search_time_postfix">minute</string>
+    <string name="max_walk_distance_summary">in meters</string>
+    <string name="max_search_time_summary">in minutes</string>
+    <string name="max_walk_distance_title">Max walk distance</string>
+    <string name="max_search_time_title">Max search time</string>
+    <string name="max_walk_distance_dialogtitle">Max walk distance (meter)</string>
+    <string name="max_search_time_dialogtitle">Max search time (minute)</string>
+
+</resources>
