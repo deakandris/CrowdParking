@@ -17,5 +17,8 @@
     <string name="max_search_time_title">Max search time</string>
     <string name="max_walk_distance_dialogtitle">Max walk distance (meter)</string>
     <string name="max_search_time_dialogtitle">Max search time (minute)</string>
+    <string name="gps_is_disabled_toast">GPS is disabled. Positioning won\'t work.</string>
+    <string name="getting_your_location">Getting your location...</string>
+    <string name="location_found_jumping_to_your_location">Location found. Jumping to your location.</string>
 
 </resources>
