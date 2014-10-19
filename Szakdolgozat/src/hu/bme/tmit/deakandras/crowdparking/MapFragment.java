@@ -228,10 +228,6 @@ public class MapFragment extends Fragment {
 		}
 		// if no fileinfo, startPosition or boundingBox, then remain to default
 		// world view
-
-		// for testing
-		mapView.setBoundingBox(new Bounds(19.044730f, 47.468813f, 19.065630f,
-				47.485680f), true);
 		
 		// Activate some mapview options to make it smoother
 		mapView.getOptions().setPreloading(false);
