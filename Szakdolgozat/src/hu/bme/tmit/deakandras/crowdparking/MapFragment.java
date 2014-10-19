@@ -3,11 +3,17 @@
  */
 package hu.bme.tmit.deakandras.crowdparking;
 
+import hu.bme.tmit.deakandras.crowdparking.data.ParkingDataExtractor;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.mapsforge.android.maps.mapgenerator.JobTheme;
 import org.mapsforge.map.reader.header.MapFileInfo;
+import org.xml.sax.SAXException;
 
 import android.app.Activity;
 import android.app.Fragment;
@@ -223,6 +229,10 @@ public class MapFragment extends Fragment {
 		// if no fileinfo, startPosition or boundingBox, then remain to default
 		// world view
 
+		// for testing
+		mapView.setBoundingBox(new Bounds(19.044730f, 47.468813f, 19.065630f,
+				47.485680f), true);
+		
 		// Activate some mapview options to make it smoother
 		mapView.getOptions().setPreloading(false);
 		mapView.getOptions().setSeamlessHorizontalPan(true);
@@ -278,52 +288,24 @@ public class MapFragment extends Fragment {
 				null);
 		polygonStyleSet.setZoomStyle(minZoom, polygonStyle);
 
-		geomLayer.add(new Point(new MapPos(19.040833, 47.498333),
-				new DefaultLabel("Budapest"), pointStyle, null));
-
-		// define 2 lines as WGS84 coordinates in an array.
-		double[][][] lCoordss = { { { 0, 0 }, { 0, 51 }, { 22, 51 } },
-				{ { 2, 2 }, { 2, 50 }, { 24, 50 } } };
-
-		// create two lines with these coordinates
-		// if your line is in basemap projection coordinates, no need to use
-		// conversion
-		for (double[][] lCoords : lCoordss) {
-			ArrayList<MapPos> lPoses = new ArrayList<MapPos>();
-			for (double[] coord : lCoords) {
-				lPoses.add(geomLayer.getProjection().fromWgs84(
-						(float) coord[0], (float) coord[1]));
+		geomLayer.add(new Point(new MapPos(19.055556, 47.481389),
+				new DefaultLabel("Budapesti Mûszaki és Gazdaságtudományi Egyetem"), pointStyle, null));
+		
+		try {
+			List<ArrayList<MapPos>> roads = ParkingDataExtractor.getWaysFromXML();
+			for(ArrayList<MapPos> way : roads){
+				geomLayer.add(new Line(way, null, lineStyleSet, null));
 			}
-			geomLayer.add(new Line(lPoses, new DefaultLabel("Line"),
-					lineStyleSet, null));
+		} catch (ParserConfigurationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SAXException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-
-		// add polygon with a hole. Inner hole coordinates must be entirely
-		// within.
-		double[][] pCoordsOuter = { { 0, 0 }, { 0, 51 }, { 22, 51 }, { 0, 0 } }; // outer
-																					// ring
-		double[][] pCoordsInner = { { 1, 10 }, { 1, 50 }, { 10, 50 }, { 1, 10 } }; // inner
-																					// ring
-
-		ArrayList<MapPos> outerPoses = new ArrayList<MapPos>();
-		for (double[] coord : pCoordsOuter) {
-			outerPoses.add(geomLayer.getProjection().fromWgs84(
-					(float) coord[0], (float) coord[1]));
-		}
-
-		ArrayList<MapPos> innerPoses = new ArrayList<MapPos>();
-		for (double[] coord : pCoordsInner) {
-			innerPoses.add(geomLayer.getProjection().fromWgs84(
-					(float) coord[0], (float) coord[1]));
-		}
-		// we need to create List of holes, as one polygon can have several
-		// holes
-		// here we have just one. You can have nil there also.
-		List<List<MapPos>> holes = new ArrayList<List<MapPos>>();
-		holes.add(innerPoses);
-
-		// geomLayer.add(new Polygon(outerPoses, holes,
-		// new DefaultLabel("Polygon"), polygonStyleSet, null));
 
 		mapView.getLayers().addLayer(geomLayer);
 	}
