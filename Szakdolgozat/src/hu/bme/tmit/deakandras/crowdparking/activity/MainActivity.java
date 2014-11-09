@@ -1,5 +1,6 @@
-package hu.bme.tmit.deakandras.crowdparking;
+package hu.bme.tmit.deakandras.crowdparking.activity;
 
+import hu.bme.tmit.deakandras.crowdparking.R;
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;

@@ -1,4 +1,4 @@
-package hu.bme.tmit.deakandras.crowdparking.data;
+package hu.bme.tmit.deakandras.crowdparking.activity.data;
 
 import java.util.Date;
 import java.util.List;

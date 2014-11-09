@@ -11,7 +11,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
-            android:orientation="vertical" >
+            android:orientation="vertical"
+            android:visibility="gone" >
 
             <ProgressBar
                 style="?android:attr/progressBarStyleLarge"
@@ -34,7 +35,6 @@
         <com.nutiteq.MapView
             android:id="@+id/mapView"
             android:layout_width="fill_parent"
-            android:layout_height="fill_parent"
-            android:visibility="gone" />
+            android:layout_height="fill_parent" />
 
 </RelativeLayout>

@@ -1,5 +1,6 @@
-package hu.bme.tmit.deakandras.crowdparking;
+package hu.bme.tmit.deakandras.crowdparking.activity;
 
+import hu.bme.tmit.deakandras.crowdparking.R;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;

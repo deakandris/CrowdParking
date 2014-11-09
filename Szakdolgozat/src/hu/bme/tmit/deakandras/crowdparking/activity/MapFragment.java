@@ -1,10 +1,11 @@
 /**
  * 
  */
-package hu.bme.tmit.deakandras.crowdparking;
+package hu.bme.tmit.deakandras.crowdparking.activity;
 
-import hu.bme.tmit.deakandras.crowdparking.data.ParkingDataExtractor;
-import hu.bme.tmit.deakandras.crowdparking.data.ParkingDataProvider;
+import hu.bme.tmit.deakandras.crowdparking.R;
+import hu.bme.tmit.deakandras.crowdparking.activity.data.ParkingDataLoader;
+import hu.bme.tmit.deakandras.crowdparking.activity.data.Road;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -51,7 +52,6 @@ import com.nutiteq.rasterlayers.RasterLayer;
 import com.nutiteq.style.LineStyle;
 import com.nutiteq.style.MarkerStyle;
 import com.nutiteq.style.PointStyle;
-import com.nutiteq.style.PolygonStyle;
 import com.nutiteq.style.StyleSet;
 import com.nutiteq.ui.DefaultLabel;
 import com.nutiteq.ui.Label;
@@ -69,18 +69,19 @@ public class MapFragment extends Fragment {
 	private LocationManager locationManager;
 	private LocationListener locationListener;
 	private Location myLocation;
-	private StyleSet<PointStyle> pointStyleSet;
-	private StyleSet<LineStyle> lineStyleSet;
-	private StyleSet<PolygonStyle> polygonStyleSet;
 	private GeometryLayer geomLayer;
+	private int minzoomForObjects;
+	private Bitmap pointMarker;
+	private Bitmap lineMarker;
 
-	private class ParkingDataLoaderTask extends AsyncTask<Void, Void, List<ArrayList<MapPos>>> {
+	private class ParkingDataLoaderTask extends
+			AsyncTask<Void, Void, List<Road>> {
 
 		@Override
-		protected List<ArrayList<MapPos>> doInBackground(Void... params) {
-			List<ArrayList<MapPos>> roads = new ArrayList<ArrayList<MapPos>>();
+		protected List<Road> doInBackground(Void... params) {
+			List<Road> roads = new ArrayList<Road>();
 			try {
-				roads = ParkingDataExtractor.getWaysFromXML();
+				roads = ParkingDataLoader.getWays(context);
 			} catch (ParserConfigurationException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -96,21 +97,33 @@ public class MapFragment extends Fragment {
 
 		@Override
 		protected void onPreExecute() {
-			showProgress(true);
+			// showProgress(true);
 			super.onPreExecute();
 		}
 
 		@Override
-		protected void onPostExecute(List<ArrayList<MapPos>> result) {
-			for(ArrayList<MapPos> way : result){
-				
-				geomLayer.add(new Line(way, null, lineStyleSet, null));
+		protected void onPostExecute(List<Road> result) {
+			for (Road way : result) {
+				int color = android.graphics.Color.HSVToColor(new float[] {
+						(100 - way.getOccupancy()) * 3.6f * 0.35f, 1, 1 });
+				StyleSet<PointStyle> pointStyleSet = new StyleSet<PointStyle>();
+				PointStyle pointStyle = PointStyle.builder()
+						.setBitmap(pointMarker).setSize(0.1f)
+						.setColor(color).build();
+				pointStyleSet.setZoomStyle(minzoomForObjects, pointStyle);
+				StyleSet<LineStyle> lineStyleSet = new StyleSet<LineStyle>();
+				lineStyleSet.setZoomStyle(minzoomForObjects, LineStyle
+						.builder().setBitmap(lineMarker).setWidth(0.1f)
+						.setColor(color).setPointStyle(null)
+						.build());
+				geomLayer
+						.add(new Line(way.getNodes(), null, lineStyleSet, null));
 			}
-			showProgress(false);
+			// showProgress(false);
 			super.onPostExecute(result);
 		}
 	}
-	
+
 	public MapFragment() {
 
 	}
@@ -223,7 +236,7 @@ public class MapFragment extends Fragment {
 
 		View root = inflater.inflate(R.layout.fragment_map, container, false);
 		loadingView = root.findViewById(R.id.loading_screen);
-		
+
 		createMapView(root);
 		createTestObjects();
 
@@ -231,6 +244,7 @@ public class MapFragment extends Fragment {
 	}
 
 	private MapView createMapView(View root) {
+		minzoomForObjects = 15;
 		mapView = (MapView) root.findViewById(R.id.mapView);
 		// define new configuration holder object
 		mapView.setComponents(new Components());
@@ -299,82 +313,57 @@ public class MapFragment extends Fragment {
 	}
 
 	/**
-	 * Shows the progress UI and hides the login form.
+	 * Shows the progress UI and hides the mapview.
 	 */
-		@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
-		private void showProgress(final boolean show) {
-			// On Honeycomb MR2 we have the ViewPropertyAnimator APIs, which allow
-			// for very easy animations. If available, use these APIs to fade-in
-			// the progress spinner.
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
-				int shortAnimTime = getResources().getInteger(
-						android.R.integer.config_shortAnimTime);
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
+	private void showProgress(final boolean show) {
+		// On Honeycomb MR2 we have the ViewPropertyAnimator APIs, which allow
+		// for very easy animations. If available, use these APIs to fade-in
+		// the progress spinner.
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
+			int shortAnimTime = getResources().getInteger(
+					android.R.integer.config_shortAnimTime);
 
-				loadingView.setVisibility(View.VISIBLE);
-				loadingView.animate().setDuration(shortAnimTime)
-						.alpha(show ? 1 : 0)
-						.setListener(new AnimatorListenerAdapter() {
-							@Override
-							public void onAnimationEnd(Animator animation) {
-								loadingView.setVisibility(show ? View.VISIBLE
-										: View.GONE);
-							}
-						});
+			loadingView.setVisibility(View.VISIBLE);
+			loadingView.animate().setDuration(shortAnimTime)
+					.alpha(show ? 1 : 0)
+					.setListener(new AnimatorListenerAdapter() {
+						@Override
+						public void onAnimationEnd(Animator animation) {
+							loadingView.setVisibility(show ? View.VISIBLE
+									: View.GONE);
+						}
+					});
 
-				mapView.setVisibility(View.VISIBLE);
-				mapView.animate().setDuration(shortAnimTime)
-						.alpha(show ? 0 : 1)
-						.setListener(new AnimatorListenerAdapter() {
-							@Override
-							public void onAnimationEnd(Animator animation) {
-								mapView.setVisibility(show ? View.VISIBLE
-										: View.VISIBLE);
-							}
-						});
-			} else {
-				// The ViewPropertyAnimator APIs are not available, so simply show
-				// and hide the relevant UI components.
-				loadingView.setVisibility(show ? View.VISIBLE : View.GONE);
-				mapView.setVisibility(show ? View.GONE : View.VISIBLE);
-			}
+			mapView.setVisibility(View.VISIBLE);
+			mapView.animate().setDuration(shortAnimTime).alpha(show ? 0 : 1)
+					.setListener(new AnimatorListenerAdapter() {
+						@Override
+						public void onAnimationEnd(Animator animation) {
+							mapView.setVisibility(show ? View.GONE
+									: View.VISIBLE);
+						}
+					});
+		} else {
+			// The ViewPropertyAnimator APIs are not available, so simply show
+			// and hide the relevant UI components.
+			loadingView.setVisibility(show ? View.VISIBLE : View.GONE);
+			mapView.setVisibility(show ? View.GONE : View.VISIBLE);
 		}
-	
+	}
+
 	private void createTestObjects() {
 		geomLayer = new GeometryLayer(new EPSG4326());
 
-		// define minimum zoom for vector style visibility. If 0, then objects
-		// are visible with any zoom.
-		int minZoom = 15;
-
-		// load bitmaps for vector elements. You can get the images from
-		// Hellomap3D project res/drawable
-		// these are simple anti-aliased bitmaps which can change colour, should
-		// be good for most cases
-		Bitmap pointMarker = UnscaledBitmapLoader.decodeResource(
-				getResources(), R.drawable.point);
-		Bitmap lineMarker = UnscaledBitmapLoader.decodeResource(getResources(),
+		pointMarker = UnscaledBitmapLoader.decodeResource(getResources(),
+				R.drawable.point);
+		lineMarker = UnscaledBitmapLoader.decodeResource(getResources(),
 				R.drawable.line);
 
-		// set styles for all 3 object types: point, line and polygon
-		pointStyleSet = new StyleSet<PointStyle>();
+		StyleSet<PointStyle> pointStyleSet = new StyleSet<PointStyle>();
 		PointStyle pointStyle = PointStyle.builder().setBitmap(pointMarker)
 				.setSize(0.1f).setColor(Color.GREEN).build();
-		pointStyleSet.setZoomStyle(minZoom, pointStyle);
-
-		// We reuse here pointStyle for Line. This is used for line caps, useful
-		// for nicer polylines
-		// Also do not forget to set Bitmap for Line. This allows to have fancy
-		// styles for lines.
-		lineStyleSet = new StyleSet<LineStyle>();
-		lineStyleSet.setZoomStyle(minZoom,
-				LineStyle.builder().setBitmap(lineMarker).setWidth(0.1f)
-						.setColor(Color.GREEN).setPointStyle(pointStyle)
-						.build());
-		PolygonStyle polygonStyle = PolygonStyle.builder().setColor(Color.BLUE)
-				.build();
-		polygonStyleSet = new StyleSet<PolygonStyle>(
-				null);
-		polygonStyleSet.setZoomStyle(minZoom, polygonStyle);
+		pointStyleSet.setZoomStyle(minzoomForObjects, pointStyle);
 
 		geomLayer.add(new Point(new MapPos(19.055556, 47.481389),
 				new DefaultLabel(
@@ -382,7 +371,7 @@ public class MapFragment extends Fragment {
 				pointStyle, null));
 
 		new ParkingDataLoaderTask().execute(null, null, null);
-		
+
 		mapView.getLayers().addLayer(geomLayer);
 	}
 
