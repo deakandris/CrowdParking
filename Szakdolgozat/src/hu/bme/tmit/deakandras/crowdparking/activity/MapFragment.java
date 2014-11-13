@@ -4,8 +4,8 @@
 package hu.bme.tmit.deakandras.crowdparking.activity;
 
 import hu.bme.tmit.deakandras.crowdparking.R;
-import hu.bme.tmit.deakandras.crowdparking.activity.data.ParkingDataLoader;
-import hu.bme.tmit.deakandras.crowdparking.activity.data.Road;
+import hu.bme.tmit.deakandras.crowdparking.data.ParkingDataLoader;
+import hu.bme.tmit.deakandras.crowdparking.data.Way;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -75,11 +75,11 @@ public class MapFragment extends Fragment {
 	private Bitmap lineMarker;
 
 	private class ParkingDataLoaderTask extends
-			AsyncTask<Void, Void, List<Road>> {
+			AsyncTask<Void, Void, List<Way>> {
 
 		@Override
-		protected List<Road> doInBackground(Void... params) {
-			List<Road> roads = new ArrayList<Road>();
+		protected List<Way> doInBackground(Void... params) {
+			List<Way> roads = new ArrayList<Way>();
 			try {
 				roads = ParkingDataLoader.getWays(context);
 			} catch (ParserConfigurationException e) {
@@ -102,10 +102,10 @@ public class MapFragment extends Fragment {
 		}
 
 		@Override
-		protected void onPostExecute(List<Road> result) {
-			for (Road way : result) {
+		protected void onPostExecute(List<Way> result) {
+			for (Way way : result) {
 				int color = android.graphics.Color.HSVToColor(new float[] {
-						(100 - way.getOccupancy()) * 3.6f * 0.35f, 1, 1 });
+						(100 - way.occupancy) * 3.6f * 0.35f, 1, 1 });
 				StyleSet<PointStyle> pointStyleSet = new StyleSet<PointStyle>();
 				PointStyle pointStyle = PointStyle.builder()
 						.setBitmap(pointMarker).setSize(0.1f)
@@ -117,7 +117,7 @@ public class MapFragment extends Fragment {
 						.setColor(color).setPointStyle(null)
 						.build());
 				geomLayer
-						.add(new Line(way.getNodes(), null, lineStyleSet, null));
+						.add(new Line(way.getNodesAsMapPos(), null, lineStyleSet, null));
 			}
 			// showProgress(false);
 			super.onPostExecute(result);

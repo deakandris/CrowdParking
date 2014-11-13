@@ -1,4 +1,4 @@
-package hu.bme.tmit.deakandras.crowdparking.activity.data;
+package hu.bme.tmit.deakandras.crowdparking.data;
 
 /** Interface for application constants. */
 public interface Constants {

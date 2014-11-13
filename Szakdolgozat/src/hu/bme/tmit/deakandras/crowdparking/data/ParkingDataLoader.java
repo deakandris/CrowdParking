@@ -1,7 +1,10 @@
-package hu.bme.tmit.deakandras.crowdparking.activity.data;
+package hu.bme.tmit.deakandras.crowdparking.data;
+
+import hu.bme.tmit.deakandras.crowdparking.database.DatabaseManager;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -27,25 +30,36 @@ public class ParkingDataLoader {
 	private static final Logger logger = Logger
 			.getLogger(ParkingDataLoader.class.getName());
 
-	public static List<Road> getWays(final Context context)
+	public static List<Way> getWays(final Context context)
 			throws ParserConfigurationException, SAXException, IOException {
-		List<Road> newWays = getWaysFromXML(context);
-		return null;
+		DatabaseManager databaseManager = new DatabaseManager(context);
+		databaseManager.open(true);
+		List<Way> newWays = getWaysFromXML(context);
+		if (newWays != null && newWays.size() > 0) {
+			databaseManager.insertAll(newWays);
+			SharedPreferences settings = context.getSharedPreferences(
+					Constants.SETTINGS, Context.MODE_PRIVATE);
+			Editor editor = settings.edit();
+			editor.putLong(Constants.TIMESTAMP, Calendar.getInstance()
+					.getTimeInMillis());
+			editor.commit();
+		}
+		List<Way> ways = databaseManager.getAll();
+		return ways;
 	}
 
-	private static List<Road> getWaysFromXML(final Context context)
+	private static List<Way> getWaysFromXML(final Context context)
 			throws ParserConfigurationException, SAXException, IOException {
 
-		final List<Road> roads = new ArrayList<Road>();
+		final List<Way> roads = new ArrayList<Way>();
 		Logger.getLogger("").getHandlers()[0].setLevel(Level.ALL);
 		logger.setLevel(Level.FINE);
 
 		SAXParser saxParser = SAXParserFactory.newInstance().newSAXParser();
 		DefaultHandler handler = new DefaultHandler() {
 			ArrayMap<Long, MapPos> nodes = new ArrayMap<Long, MapPos>();
-			ArrayList<MapPos> nodeBuffer = new ArrayList<MapPos>();
-			List<Road> ways = new ArrayList<Road>();
-			float occupancy = 0;
+			List<Way> ways = new ArrayList<Way>();
+			Way tempway;
 			int i = 0;
 
 			@Override
@@ -56,8 +70,8 @@ public class ParkingDataLoader {
 				if (qName.equalsIgnoreCase("root")) {
 					Long timestamp = Long.parseLong(attributes
 							.getValue("timestamp"));
-					if (checkDate(timestamp, context)) {
-//						throw new SAXException("XML is older than database.");
+					if (!checkDate(timestamp, context)) {
+						throw new SAXException("XML is older than database.");
 					}
 				} else if (qName.equalsIgnoreCase("node")) {
 					Long id = Long.parseLong(attributes.getValue("id"));
@@ -66,12 +80,15 @@ public class ParkingDataLoader {
 					nodes.put(id, new MapPos(lon, lat));
 					logger.info("Node element found with ID=" + id);
 				} else if (qName.equalsIgnoreCase("way")) {
-					occupancy = Float.parseFloat(attributes.getValue("occupancy"));
+					long id = Long.parseLong(attributes.getValue("id"));
+					float occupancy = Float.parseFloat(attributes
+							.getValue("occupancy"));
+					tempway = new Way(id, new ArrayList<Node>(), occupancy);
 				} else if (qName.equalsIgnoreCase("nd")) {
 
 					Long ref = Long.parseLong(attributes.getValue("ref"));
 					if (nodes.get(ref) != null) {
-						nodeBuffer.add(nodes.get(ref));
+						tempway.nodes.add(new Node(ref, nodes.get(ref)));
 						logger.info("Node reference found with ID=" + ref);
 					} else {
 						logger.info("Invalid node reference. ID=" + ref);
@@ -87,10 +104,9 @@ public class ParkingDataLoader {
 				logger.entering("DefaultHandler", "endElement", new Object[] {
 						uri, localName, qName });
 				if (qName.equalsIgnoreCase("way")) {
-					if (nodeBuffer.size() > 1) {
-						ways.add(new Road(nodeBuffer, occupancy));
-						nodeBuffer = new ArrayList<MapPos>();
-						occupancy = 0;
+					if (tempway.nodes.size() > 1) {
+						ways.add(tempway);
+						tempway = null;
 						logger.info("Way element #" + ++i + " added to ways.");
 					} else {
 						logger.info("Way contains less than 2 nodes, discard way.");
@@ -106,7 +122,7 @@ public class ParkingDataLoader {
 				roads.addAll(ways);
 				logger.info("Ended parsing ways.");
 				int i = 0;
-				for (Road way : roads) {
+				for (Way way : roads) {
 					logger.info("#" + ++i + " " + way);
 				}
 				logger.exiting("DefaultHandler", "endDocument");

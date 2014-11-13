@@ -13,12 +13,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
 	@Override
 	public void onCreate(SQLiteDatabase db) {
-		db.execSQL(DatabaseConstants.CREATE_DATABASE);
+		db.execSQL(DatabaseConstants.CREATE_TABLE_NODES);
+		db.execSQL(DatabaseConstants.CREATE_TABLE_WAYS);
+		db.execSQL(DatabaseConstants.CREATE_TABLE_WAY_NODE);
 	}
 
 	@Override
 	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-		db.execSQL(DatabaseConstants.DROP_ALL_TABLES);
+		db.execSQL(DatabaseConstants.DROP_TABLE_NODES);
+		db.execSQL(DatabaseConstants.DROP_TABLE_WAYS);
+		db.execSQL(DatabaseConstants.DROP_TABLE_WAY_NODE);
 		onCreate(db);
 
 	}
