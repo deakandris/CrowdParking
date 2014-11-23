@@ -31,20 +31,27 @@ public class ParkingDataLoader {
 			.getLogger(ParkingDataLoader.class.getName());
 
 	public static List<Way> getWays(final Context context)
-			throws ParserConfigurationException, SAXException, IOException {
+			throws ParserConfigurationException, IOException {
 		DatabaseManager databaseManager = new DatabaseManager(context);
 		databaseManager.open(true);
-		List<Way> newWays = getWaysFromXML(context);
-		if (newWays != null && newWays.size() > 0) {
-			databaseManager.insertAll(newWays);
-			SharedPreferences settings = context.getSharedPreferences(
-					Constants.SETTINGS, Context.MODE_PRIVATE);
-			Editor editor = settings.edit();
-			editor.putLong(Constants.TIMESTAMP, Calendar.getInstance()
-					.getTimeInMillis());
-			editor.commit();
+		List<Way> newWays;
+		try {
+			newWays = getWaysFromXML(context);
+			if (newWays != null && newWays.size() > 0) {
+				databaseManager.insertAll(newWays);
+				SharedPreferences settings = context.getSharedPreferences(
+						Constants.SETTINGS, Context.MODE_PRIVATE);
+				Editor editor = settings.edit();
+				editor.putLong(Constants.TIMESTAMP, Calendar.getInstance()
+						.getTimeInMillis());
+				editor.commit();
+			}
+		} catch (SAXException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 		List<Way> ways = databaseManager.getAll();
+		databaseManager.close();
 		return ways;
 	}
 

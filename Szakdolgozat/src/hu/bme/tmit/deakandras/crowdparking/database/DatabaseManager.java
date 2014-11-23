@@ -112,7 +112,7 @@ public class DatabaseManager {
 		// get every node from the database
 		Cursor cursor = database.query(DatabaseConstants.NODES_TABLE_NAME,
 				null, null, null, null, null, null);
-		if (cursor.moveToFirst()) {
+		if (cursor != null && cursor.moveToFirst()) {
 			int idIndex = cursor.getColumnIndex(DatabaseConstants.KEY_NODE_ID);
 			int latIndex = cursor
 					.getColumnIndex(DatabaseConstants.KEY_NODE_LAT);
@@ -130,7 +130,7 @@ public class DatabaseManager {
 		// get every way from the database
 		cursor = database.query(DatabaseConstants.WAYS_TABLE_NAME, null, null,
 				null, null, null, null);
-		if (cursor.moveToFirst()) {
+		if (cursor != null && cursor.moveToFirst()) {
 			int idIndex = cursor.getColumnIndex(DatabaseConstants.KEY_WAY_ID);
 			int occupancyIndex = cursor
 					.getColumnIndex(DatabaseConstants.KEY_WAY_OCCUPANCY);
@@ -143,9 +143,9 @@ public class DatabaseManager {
 				Cursor innerCursor = database.query(
 						DatabaseConstants.WAY_NODE_TABLE_NAME,
 						new String[] { DatabaseConstants.KEY_WAY_NODE_NODEID },
-						DatabaseConstants.KEY_WAY_NODE_WAYID + "=" + way.id, null,
-						null, null, null);
-				if (innerCursor.moveToFirst()) {
+						DatabaseConstants.KEY_WAY_NODE_WAYID + "=" + way.id,
+						null, null, null, null);
+				if (innerCursor != null && innerCursor.moveToFirst()) {
 					int nodeIndex = innerCursor
 							.getColumnIndex(DatabaseConstants.KEY_WAY_NODE_NODEID);
 					do {
@@ -159,5 +159,47 @@ public class DatabaseManager {
 			} while (cursor.moveToNext());
 		}
 		return ways;
+	}
+
+	public double getOccupancy(Long wayid) {
+		double result = 0;
+		Cursor cursor = database.query(DatabaseConstants.WAYS_TABLE_NAME,
+				new String[] { DatabaseConstants.KEY_WAY_OCCUPANCY },
+				DatabaseConstants.KEY_WAY_ID + "=" + wayid, null, null, null,
+				null);
+		if (cursor != null && cursor.moveToFirst()) {
+			result = cursor.getDouble(0);
+		}
+		return result;
+	}
+
+	public long getNodeId(double lat, double lon) {
+		long result = -1;
+		Cursor cursor = database.query(DatabaseConstants.NODES_TABLE_NAME,
+				new String[] { DatabaseConstants.KEY_NODE_ID },
+				DatabaseConstants.KEY_NODE_LAT + "=" + lat + " AND "
+						+ DatabaseConstants.KEY_NODE_LON + "=" + lon, null,
+				null, null, null);
+		if (cursor != null && cursor.moveToFirst()) {
+			result = cursor.getLong(0);
+		}
+		return result;
+	}
+
+	public long getWayId(long nodeid1, long nodeid2) {
+		long result = -1;
+		Cursor cursor = database
+				.query(DatabaseConstants.WAY_NODE_TABLE_NAME,
+						new String[] { DatabaseConstants.KEY_WAY_NODE_WAYID },
+						DatabaseConstants.KEY_WAY_NODE_NODEID + "=" + nodeid1
+								+ " OR "
+								+ DatabaseConstants.KEY_WAY_NODE_NODEID + "="
+								+ nodeid2, null,
+						DatabaseConstants.KEY_WAY_NODE_WAYID, "COUNT(*) > 1",
+						null);
+		if (cursor != null && cursor.moveToFirst()){
+			result = cursor.getLong(0);
+		}
+		return result;
 	}
 }

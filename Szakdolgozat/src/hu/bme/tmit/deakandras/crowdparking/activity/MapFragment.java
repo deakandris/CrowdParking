@@ -6,16 +6,18 @@ package hu.bme.tmit.deakandras.crowdparking.activity;
 import hu.bme.tmit.deakandras.crowdparking.R;
 import hu.bme.tmit.deakandras.crowdparking.data.ParkingDataLoader;
 import hu.bme.tmit.deakandras.crowdparking.data.Way;
+import hu.bme.tmit.deakandras.crowdparking.graphhopper.MyGraphHopper;
+import hu.bme.tmit.deakandras.crowdparking.listener.MapEventListener;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.mapsforge.android.maps.mapgenerator.JobTheme;
 import org.mapsforge.map.reader.header.MapFileInfo;
-import org.xml.sax.SAXException;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -36,19 +38,26 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import com.graphhopper.GHRequest;
+import com.graphhopper.GHResponse;
+import com.graphhopper.routing.Path;
+import com.graphhopper.util.PointList;
 import com.nutiteq.MapView;
 import com.nutiteq.components.Bounds;
 import com.nutiteq.components.Color;
 import com.nutiteq.components.Components;
 import com.nutiteq.components.MapPos;
 import com.nutiteq.datasources.raster.MapsforgeRasterDataSource;
+import com.nutiteq.geometry.Geometry;
 import com.nutiteq.geometry.Line;
 import com.nutiteq.geometry.Marker;
 import com.nutiteq.geometry.Point;
-import com.nutiteq.log.Log;
 import com.nutiteq.projections.EPSG3857;
 import com.nutiteq.projections.EPSG4326;
+import com.nutiteq.projections.Projection;
 import com.nutiteq.rasterlayers.RasterLayer;
+import com.nutiteq.services.routing.Route;
+import com.nutiteq.services.routing.RouteActivity;
 import com.nutiteq.style.LineStyle;
 import com.nutiteq.style.MarkerStyle;
 import com.nutiteq.style.PointStyle;
@@ -60,7 +69,7 @@ import com.nutiteq.utils.UnscaledBitmapLoader;
 import com.nutiteq.vectorlayers.GeometryLayer;
 import com.nutiteq.vectorlayers.MarkerLayer;
 
-public class MapFragment extends Fragment {
+public class MapFragment extends Fragment implements RouteActivity {
 
 	private Context context;
 	private MapView mapView;
@@ -73,56 +82,12 @@ public class MapFragment extends Fragment {
 	private int minzoomForObjects;
 	private Bitmap pointMarker;
 	private Bitmap lineMarker;
-
-	private class ParkingDataLoaderTask extends
-			AsyncTask<Void, Void, List<Way>> {
-
-		@Override
-		protected List<Way> doInBackground(Void... params) {
-			List<Way> roads = new ArrayList<Way>();
-			try {
-				roads = ParkingDataLoader.getWays(context);
-			} catch (ParserConfigurationException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (SAXException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			return roads;
-		}
-
-		@Override
-		protected void onPreExecute() {
-			// showProgress(true);
-			super.onPreExecute();
-		}
-
-		@Override
-		protected void onPostExecute(List<Way> result) {
-			for (Way way : result) {
-				int color = android.graphics.Color.HSVToColor(new float[] {
-						(100 - way.occupancy) * 3.6f * 0.35f, 1, 1 });
-				StyleSet<PointStyle> pointStyleSet = new StyleSet<PointStyle>();
-				PointStyle pointStyle = PointStyle.builder()
-						.setBitmap(pointMarker).setSize(0.1f)
-						.setColor(color).build();
-				pointStyleSet.setZoomStyle(minzoomForObjects, pointStyle);
-				StyleSet<LineStyle> lineStyleSet = new StyleSet<LineStyle>();
-				lineStyleSet.setZoomStyle(minzoomForObjects, LineStyle
-						.builder().setBitmap(lineMarker).setWidth(0.1f)
-						.setColor(color).setPointStyle(null)
-						.build());
-				geomLayer
-						.add(new Line(way.getNodesAsMapPos(), null, lineStyleSet, null));
-			}
-			// showProgress(false);
-			super.onPostExecute(result);
-		}
-	}
+	private boolean graphLoaded;
+	private Marker stopMarker;
+	protected MyGraphHopper gh;
+	private GeometryLayer routeLayer;
+	protected Marker startMarker;
+	private static Logger logger;
 
 	public MapFragment() {
 
@@ -133,6 +98,8 @@ public class MapFragment extends Fragment {
 		super.onCreate(savedInstanceState);
 
 		context = getActivity();
+
+		logger = Logger.getLogger(ParkingDataLoader.class.getName());
 
 		// Start the Location Service and binds a listener to it.
 		locationManager = (LocationManager) context
@@ -238,8 +205,12 @@ public class MapFragment extends Fragment {
 		loadingView = root.findViewById(R.id.loading_screen);
 
 		createMapView(root);
-		createTestObjects();
+		createParkingDataObjects();
+		createRoutingObjects();
 
+		MapEventListener mapListener = new MapEventListener(this);
+        mapView.getOptions().setMapListener(mapListener);
+		
 		return root;
 	}
 
@@ -269,7 +240,7 @@ public class MapFragment extends Fragment {
 						mapFileInfo.startPosition.getLongitude(),
 						mapFileInfo.startPosition.getLatitude(),
 						mapFileInfo.startZoomLevel);
-				Log.debug("center: " + mapCenter);
+				logger.info("center: " + mapCenter);
 				mapView.setFocusPoint(mapView.getLayers().getBaseLayer()
 						.getProjection().fromWgs84(mapCenter.x, mapCenter.y));
 				mapView.setZoom((float) mapCenter.z);
@@ -352,7 +323,7 @@ public class MapFragment extends Fragment {
 		}
 	}
 
-	private void createTestObjects() {
+	private void createParkingDataObjects() {
 		geomLayer = new GeometryLayer(new EPSG4326());
 
 		pointMarker = UnscaledBitmapLoader.decodeResource(getResources(),
@@ -370,7 +341,48 @@ public class MapFragment extends Fragment {
 						"Budapesti Mûszaki és Gazdaságtudományi Egyetem"),
 				pointStyle, null));
 
-		new ParkingDataLoaderTask().execute(null, null, null);
+		new AsyncTask<Void, Void, List<Way>>() {
+
+			@Override
+			protected List<Way> doInBackground(Void... params) {
+				List<Way> roads = new ArrayList<Way>();
+				try {
+					roads = ParkingDataLoader.getWays(context);
+				} catch (ParserConfigurationException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				return roads;
+			}
+
+			@Override
+			protected void onPreExecute() {
+				// showProgress(true);
+				super.onPreExecute();
+			}
+
+			@Override
+			protected void onPostExecute(List<Way> result) {
+				for (Way way : result) {
+					int color = android.graphics.Color.HSVToColor(new float[] {
+							(100 - way.occupancy) * 3.6f * 0.35f, 1, 1 });
+					StyleSet<PointStyle> pointStyleSet = new StyleSet<PointStyle>();
+					PointStyle pointStyle = PointStyle.builder()
+							.setBitmap(pointMarker).setSize(0.1f)
+							.setColor(color).build();
+					pointStyleSet.setZoomStyle(minzoomForObjects, pointStyle);
+					StyleSet<LineStyle> lineStyleSet = new StyleSet<LineStyle>();
+					lineStyleSet.setZoomStyle(minzoomForObjects, LineStyle
+							.builder().setBitmap(lineMarker).setWidth(0.1f)
+							.setColor(color).setPointStyle(null).build());
+					geomLayer.add(new Line(way.getNodesAsMapPos(), null,
+							lineStyleSet, null));
+				}
+				// showProgress(false);
+				super.onPostExecute(result);
+			}
+		}.execute();
 
 		mapView.getLayers().addLayer(geomLayer);
 	}
@@ -434,6 +446,61 @@ public class MapFragment extends Fragment {
 		layer.add(circle);
 	}
 
+	private void createRoutingObjects() {
+		new AsyncTask<Void, Void, Path>() {
+			protected Path doInBackground(Void... v) {
+				try {
+					MyGraphHopper tmpHopp = new MyGraphHopper(context).forMobile();
+					tmpHopp.setCHShortcuts("fastest");
+					tmpHopp.load(Environment.getExternalStorageDirectory()
+							+ "/hungary-gh");
+					logger.info("found graph with "
+							+ tmpHopp.getGraph().getNodes() + " nodes");
+					gh = tmpHopp;
+					graphLoaded = true;
+				} catch (Throwable t) {
+					t.printStackTrace();
+					return null;
+				}
+				return null;
+			}
+
+			protected void onPostExecute(Path o) {
+				if (graphLoaded)
+					Toast.makeText(
+							context,
+							"graph loaded, click on map to set route start and end",
+							Toast.LENGTH_SHORT).show();
+				else
+					Toast.makeText(context, "graph loading problem",
+							Toast.LENGTH_SHORT).show();
+			}
+		}.execute();
+		
+		routeLayer = new GeometryLayer(new EPSG3857());
+		mapView.getLayers().addLayer(routeLayer);
+		
+		Bitmap olMarker = UnscaledBitmapLoader.decodeResource(getResources(),
+                R.drawable.olmarker);
+        StyleSet<MarkerStyle> startMarkerStyleSet = new StyleSet<MarkerStyle>(
+                MarkerStyle.builder().setBitmap(olMarker).setColor(Color.GREEN)
+                .setSize(0.2f).build());
+        startMarker = new Marker(new MapPos(0, 0), new DefaultLabel("Start"),
+                startMarkerStyleSet, null);
+
+        StyleSet<MarkerStyle> stopMarkerStyleSet = new StyleSet<MarkerStyle>(
+                MarkerStyle.builder().setBitmap(olMarker).setColor(Color.RED)
+                .setSize(0.2f).build());
+        stopMarker = new Marker(new MapPos(0, 0), new DefaultLabel("Stop"),
+                stopMarkerStyleSet, null);
+
+        MarkerLayer markerLayer = new MarkerLayer(new EPSG3857());
+        mapView.getLayers().addLayer(markerLayer);
+
+        markerLayer.add(startMarker);
+        markerLayer.add(stopMarker);
+	}
+
 	@Override
 	public void onAttach(Activity activity) {
 		super.onAttach(activity);
@@ -454,4 +521,82 @@ public class MapFragment extends Fragment {
 		super.onStop();
 	}
 
+	@Override
+	public void routeResult(Route arg0) {
+		// not used
+	}
+
+	@Override
+	public void setStartMarker(MapPos startPos) {
+		routeLayer.clear();
+		stopMarker.setVisible(false);
+		startMarker.setMapPos(startPos);
+		startMarker.setVisible(true);
+
+	}
+
+	@Override
+	public void setStopMarker(MapPos stopPos) {
+		stopMarker.setMapPos(stopPos);
+		stopMarker.setVisible(true);
+		MapPos destPos = (new EPSG3857()).toWgs84(stopPos.x,stopPos.y);
+		gh.setDestination(destPos.y, destPos.x);
+		logger.info("Destination set to " + destPos.y + ", " + destPos.x);
+	}
+
+	@Override
+	public void showRoute(final double fromLat, final double fromLon,
+			final double toLat, final double toLon) {
+		if (!graphLoaded) {
+			Toast.makeText(context, "graph not loaded yet, cannot route",
+					Toast.LENGTH_LONG).show();
+			return;
+		}
+
+		Projection proj = mapView.getLayers().getBaseLayer().getProjection();
+		stopMarker.setMapPos(proj.fromWgs84(toLon, toLat));
+
+		new AsyncTask<Void, Void, GHResponse>() {
+
+			protected GHResponse doInBackground(Void... v) {
+				GHRequest req = new GHRequest(fromLat, fromLon, toLat, toLon)
+						.setAlgorithm("dijkstrabi")
+						.putHint("instructions", true)
+						.putHint("douglas.minprecision", 1);
+				GHResponse resp = gh.route(req);
+				return resp;
+			}
+
+			protected void onPostExecute(GHResponse res) {
+
+				routeLayer.clear();
+				routeLayer.add(createPolyline(startMarker.getMapPos(),
+						stopMarker.getMapPos(), res));
+
+			}
+		}.execute();
+	}
+
+	protected Geometry createPolyline(MapPos startPos, MapPos stopPos,
+			GHResponse response) {
+		StyleSet<LineStyle> lineStyleSet = new StyleSet<LineStyle>(LineStyle
+				.builder().setWidth(0.05f).setColor(Color.BLUE).build());
+
+		Projection proj = mapView.getLayers().getBaseLayer().getProjection();
+		int points = response.getPoints().getSize();
+		List<MapPos> geoPoints = new ArrayList<MapPos>(points + 2);
+		PointList tmp = response.getPoints();
+		geoPoints.add(startPos);
+		for (int i = 0; i < points; i++) {
+			geoPoints.add(proj.fromWgs84(tmp.getLongitude(i),
+					tmp.getLatitude(i)));
+		}
+		geoPoints.add(stopPos);
+
+		String labelText = "" + (int) (response.getDistance() / 100) / 10f
+				+ "km, time:" + response.getTime() / 60f + "min";
+
+		return new Line(geoPoints, new DefaultLabel("Route", labelText),
+				lineStyleSet, null);
+	}
 }
