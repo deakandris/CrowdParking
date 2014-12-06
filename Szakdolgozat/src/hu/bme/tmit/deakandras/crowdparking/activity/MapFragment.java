@@ -32,8 +32,10 @@ import android.location.LocationManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
@@ -87,6 +89,7 @@ public class MapFragment extends Fragment implements RouteActivity {
 	protected MyGraphHopper gh;
 	private GeometryLayer routeLayer;
 	protected Marker startMarker;
+	private MarkerLayer markerLayer;
 	private static Logger logger;
 
 	public MapFragment() {
@@ -96,7 +99,7 @@ public class MapFragment extends Fragment implements RouteActivity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-
+		setHasOptionsMenu(true);
 		context = getActivity();
 
 		logger = Logger.getLogger(ParkingDataLoader.class.getName());
@@ -120,7 +123,6 @@ public class MapFragment extends Fragment implements RouteActivity {
 									.getAccuracy()) {
 						myLocation = location;
 					}
-
 					// jump to location
 					mapView.setFocusPoint(mapView
 							.getLayers()
@@ -130,14 +132,16 @@ public class MapFragment extends Fragment implements RouteActivity {
 									myLocation.getLatitude()));
 
 					// draw location
-					// Bitmap pointMarker = UnscaledBitmapLoader.decodeResource(
+					// Bitmap pointMarker =
+					// UnscaledBitmapLoader.decodeResource(
 					// getResources(), R.drawable.point);
 					// PointStyle pointStyle =
 					// PointStyle.builder().setBitmap(pointMarker)
 					// .setSize(0.1f).setColor(Color.GREEN).build();
 					// locationLayer.add(new Point(new MapPos(19.040833,
 					// 47.498333),
-					// new DefaultLabel("Your Position"), pointStyle, null));
+					// new DefaultLabel("Your Position"), pointStyle,
+					// null));
 
 					drawLocation(myLocation);
 
@@ -209,8 +213,8 @@ public class MapFragment extends Fragment implements RouteActivity {
 		createRoutingObjects();
 
 		MapEventListener mapListener = new MapEventListener(this);
-        mapView.getOptions().setMapListener(mapListener);
-		
+		mapView.getOptions().setMapListener(mapListener);
+
 		return root;
 	}
 
@@ -221,8 +225,7 @@ public class MapFragment extends Fragment implements RouteActivity {
 		mapView.setComponents(new Components());
 
 		// Define base layer
-		String mapFile = Environment.getExternalStorageDirectory()
-				+ "/hungary-gh/hungary.map";
+		String mapFile = "/storage/external_SD/hungary-gh/hungary.map";
 		JobTheme renderTheme = MapsforgeRasterDataSource.InternalRenderTheme.OSMARENDER;
 		MapsforgeRasterDataSource dataSource = new MapsforgeRasterDataSource(
 				new EPSG3857(), 0, 20, mapFile, renderTheme);
@@ -405,8 +408,10 @@ public class MapFragment extends Fragment implements RouteActivity {
 
 		// create layer and add object to the layer, finally add layer to the
 		// map
-		MarkerLayer markerLayer = new MarkerLayer(mapView.getLayers()
-				.getBaseProjection());
+		if (markerLayer != null) {
+			mapView.getLayers().removeLayer(markerLayer);
+		}
+		markerLayer = new MarkerLayer(mapView.getLayers().getBaseProjection());
 		markerLayer.add(new Marker(markerLocation, markerLabel, markerStyle,
 				markerLayer));
 		mapView.getLayers().addLayer(markerLayer);
@@ -450,10 +455,10 @@ public class MapFragment extends Fragment implements RouteActivity {
 		new AsyncTask<Void, Void, Path>() {
 			protected Path doInBackground(Void... v) {
 				try {
-					MyGraphHopper tmpHopp = new MyGraphHopper(context).forMobile();
+					MyGraphHopper tmpHopp = new MyGraphHopper(context)
+							.forMobile();
 					tmpHopp.setCHShortcuts("fastest");
-					tmpHopp.load(Environment.getExternalStorageDirectory()
-							+ "/hungary-gh");
+					tmpHopp.load("storage/external_SD/hungary-gh");
 					logger.info("found graph with "
 							+ tmpHopp.getGraph().getNodes() + " nodes");
 					gh = tmpHopp;
@@ -476,29 +481,29 @@ public class MapFragment extends Fragment implements RouteActivity {
 							Toast.LENGTH_SHORT).show();
 			}
 		}.execute();
-		
+
 		routeLayer = new GeometryLayer(new EPSG3857());
 		mapView.getLayers().addLayer(routeLayer);
-		
+
 		Bitmap olMarker = UnscaledBitmapLoader.decodeResource(getResources(),
-                R.drawable.olmarker);
-        StyleSet<MarkerStyle> startMarkerStyleSet = new StyleSet<MarkerStyle>(
-                MarkerStyle.builder().setBitmap(olMarker).setColor(Color.GREEN)
-                .setSize(0.2f).build());
-        startMarker = new Marker(new MapPos(0, 0), new DefaultLabel("Start"),
-                startMarkerStyleSet, null);
+				R.drawable.olmarker);
+		StyleSet<MarkerStyle> startMarkerStyleSet = new StyleSet<MarkerStyle>(
+				MarkerStyle.builder().setBitmap(olMarker).setColor(Color.GREEN)
+						.setSize(0.2f).build());
+		startMarker = new Marker(new MapPos(0, 0), new DefaultLabel("Start"),
+				startMarkerStyleSet, null);
 
-        StyleSet<MarkerStyle> stopMarkerStyleSet = new StyleSet<MarkerStyle>(
-                MarkerStyle.builder().setBitmap(olMarker).setColor(Color.RED)
-                .setSize(0.2f).build());
-        stopMarker = new Marker(new MapPos(0, 0), new DefaultLabel("Stop"),
-                stopMarkerStyleSet, null);
+		StyleSet<MarkerStyle> stopMarkerStyleSet = new StyleSet<MarkerStyle>(
+				MarkerStyle.builder().setBitmap(olMarker).setColor(Color.RED)
+						.setSize(0.2f).build());
+		stopMarker = new Marker(new MapPos(0, 0), new DefaultLabel("Stop"),
+				stopMarkerStyleSet, null);
 
-        MarkerLayer markerLayer = new MarkerLayer(new EPSG3857());
-        mapView.getLayers().addLayer(markerLayer);
+		MarkerLayer markerLayer = new MarkerLayer(new EPSG3857());
+		mapView.getLayers().addLayer(markerLayer);
 
-        markerLayer.add(startMarker);
-        markerLayer.add(stopMarker);
+		markerLayer.add(startMarker);
+		markerLayer.add(stopMarker);
 	}
 
 	@Override
@@ -522,6 +527,30 @@ public class MapFragment extends Fragment implements RouteActivity {
 	}
 
 	@Override
+	public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+		inflater.inflate(R.menu.map, menu);
+		super.onCreateOptionsMenu(menu, inflater);
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		if (item.getItemId() == R.id.action_locate) {
+			if(myLocation != null){
+			mapView.setFocusPoint(mapView
+					.getLayers()
+					.getBaseLayer()
+					.getProjection()
+					.fromWgs84(myLocation.getLongitude(),
+							myLocation.getLatitude()));
+			return true;
+			} else {
+				Toast.makeText(context, "location not found yet", Toast.LENGTH_LONG).show();
+			}
+		}
+		return super.onOptionsItemSelected(item);
+	}
+
+	@Override
 	public void routeResult(Route arg0) {
 		// not used
 	}
@@ -539,7 +568,7 @@ public class MapFragment extends Fragment implements RouteActivity {
 	public void setStopMarker(MapPos stopPos) {
 		stopMarker.setMapPos(stopPos);
 		stopMarker.setVisible(true);
-		MapPos destPos = (new EPSG3857()).toWgs84(stopPos.x,stopPos.y);
+		MapPos destPos = (new EPSG3857()).toWgs84(stopPos.x, stopPos.y);
 		gh.setDestination(destPos.y, destPos.x);
 		logger.info("Destination set to " + destPos.y + ", " + destPos.x);
 	}
@@ -556,6 +585,9 @@ public class MapFragment extends Fragment implements RouteActivity {
 		Projection proj = mapView.getLayers().getBaseLayer().getProjection();
 		stopMarker.setMapPos(proj.fromWgs84(toLon, toLat));
 
+		Toast.makeText(context, "Calculating route...",
+				Toast.LENGTH_SHORT).show();
+		
 		new AsyncTask<Void, Void, GHResponse>() {
 
 			protected GHResponse doInBackground(Void... v) {

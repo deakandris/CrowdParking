@@ -1,6 +1,7 @@
 package hu.bme.tmit.deakandras.crowdparking.activity;
 
 import hu.bme.tmit.deakandras.crowdparking.R;
+import android.app.Activity;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Bundle;
@@ -40,6 +41,12 @@ public class SettingsFragment extends PreferenceFragment implements
 								R.string.max_search_time_postfix));
 			}
 		}
+	}
+
+	@Override
+	public void onAttach(Activity activity) {
+		super.onAttach(activity);
+		((MainActivity) activity).onSectionAttached(2);
 	}
 
 	@Override
