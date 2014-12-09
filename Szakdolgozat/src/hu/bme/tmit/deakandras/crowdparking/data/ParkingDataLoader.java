@@ -39,27 +39,29 @@ public class ParkingDataLoader {
 	private static final Logger logger = Logger
 			.getLogger(ParkingDataLoader.class.getName());
 
-	public static List<Way> getWays(final Context context)
+	public static List<Way> getWays(final Context context, double lat, double lon, double radius)
 			throws ParserConfigurationException, IOException {
 		DatabaseManager databaseManager = new DatabaseManager(context);
 		databaseManager.open(true);
-		List<Way> newWays;
-		try {
-			newWays = getWaysFromXML(context);
-//			newWays = getWaysFromServer(context, 47.475929, 19.001738, 500);
-			if (newWays != null && newWays.size() > 0) {
-				databaseManager.insertAll(newWays);
-				SharedPreferences settings = context.getSharedPreferences(
-						Constants.SETTINGS, Context.MODE_PRIVATE);
-				Editor editor = settings.edit();
-				editor.putLong(Constants.TIMESTAMP, Calendar.getInstance()
-						.getTimeInMillis());
-				editor.commit();
-			}
-		} catch (SAXException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		List<Way> newWays = null;
+		 try {
+		 newWays = getWaysFromXML(context);
+//		if (checkDate(Calendar.getInstance().getTimeInMillis() - 600, context)) {
+//			newWays = getWaysFromServer(context, lat, lon, radius);
+//		}
+		if (newWays != null && newWays.size() > 0) {
+			databaseManager.insertAll(newWays);
+			SharedPreferences settings = context.getSharedPreferences(
+					Constants.SETTINGS, Context.MODE_PRIVATE);
+			Editor editor = settings.edit();
+			editor.putLong(Constants.TIMESTAMP, Calendar.getInstance()
+					.getTimeInMillis());
+			editor.commit();
 		}
+		 } catch (SAXException e) {
+		 // TODO Auto-generated catch block
+		 e.printStackTrace();
+		 }
 		List<Way> ways = databaseManager.getAll();
 		databaseManager.close();
 		return ways;
@@ -150,76 +152,120 @@ public class ParkingDataLoader {
 		return roads;
 	}
 
-	private static List<Way> getWaysFromServer(final Context context, double lat, double lon, double maxDistance){
+	private static List<Way> getWaysFromServer(final Context context,
+			double lat, double lon, double maxDistance) throws IOException {
+		List<Way> result = new ArrayList<Way>();
 		HttpClient httpclient = new DefaultHttpClient();
-		HttpGet httpget = new HttpGet("http://152.66.244.102:3000/api/query?lat="+lat+"&lon="+lon+"&maxDistance="+maxDistance);
-		
-		try {
-		    HttpResponse response = httpclient.execute(httpget);
-		    if(response != null) {
-		        String line = "";
-		        InputStream is = response.getEntity().getContent();
-		        StringBuilder sb = new StringBuilder();
-		        BufferedReader br = new BufferedReader(new InputStreamReader(is));
-		        try {
-		            while ((line = br.readLine()) != null) {
-		                sb.append(line);
-		            }
-		        } catch (Exception e) {
-		            Toast.makeText(context, "Stream Exception", Toast.LENGTH_SHORT).show();
-		        }
+		HttpGet httpget = new HttpGet(
+				"http://152.66.244.102:3000/api/query?lat=" + lat + "&lon="
+						+ lon + "&maxDistance=" + maxDistance);
 
-		        logger.info(sb.toString());
-		        
-		        JsonReader reader = new JsonReader(new InputStreamReader(is));
-		        reader.beginArray();
-		        while(reader.hasNext()){
-		        	long id = -1;
-		        	List<Node> nodes = new ArrayList<Node>();
-		        	reader.beginObject();
-		        	while(reader.hasNext()){
-		        		boolean isLineString = false;
-		        		String name = reader.nextName();
-		        		if (name.equals("_id")){
-		        			id = reader.nextLong();
-		        		} else if (name.equals("loc")){
-		        			reader.beginObject();
-		        			while(reader.hasNext()){
-		        				name = reader.nextName();
-		        				if(name.equals("type") && reader.nextString().equals("LineString")){
-		        					isLineString = true;
-		        				} else if (name.equals("coordinates") && isLineString){
-		        					reader.beginArray();
-		        					while(reader.hasNext()){
-		        						Double d = null;
-		        						reader.beginArray();
-		        						while(reader.hasNext()){
-		        							if(d == null) {
-		        								d = reader.nextDouble();
-		        							} else {
-//		        								nodes.add(new Node(id, lat, lon))
-		        								// TODO
-		        							}
-		        						}
-		        					}
-		        				}
-		        			}
-		        		}
-		        	}
-		        }
-		    } else {
-		        Toast.makeText(context, "Unable to complete your request", Toast.LENGTH_LONG).show();
-		    }
-		} catch (ClientProtocolException e) {
-		    Toast.makeText(context, "Caught ClientProtocolException", Toast.LENGTH_SHORT).show();
-		} catch (IOException e) {
-		    Toast.makeText(context, "Caught IOException", Toast.LENGTH_SHORT).show();
-		} catch (Exception e) {
-		    Toast.makeText(context, "Caught Exception", Toast.LENGTH_SHORT).show();
+		HttpResponse response = httpclient.execute(httpget);
+		if (response != null) {
+			InputStream is = response.getEntity().getContent();
+			// String line = "";
+			// StringBuilder sb = new StringBuilder();
+			// BufferedReader br = new BufferedReader(
+			// new InputStreamReader(is));
+			// try {
+			// while ((line = br.readLine()) != null) {
+			// sb.append(line);
+			// }
+			// } catch (Exception e) {
+			// Toast.makeText(context, "Stream Exception",
+			// Toast.LENGTH_SHORT).show();
+			// }
+			//
+			// logger.info(sb.toString());
+
+			JsonReader reader = new JsonReader(new InputStreamReader(is));
+			long nodeid = 0;
+			reader.beginArray();
+			while (reader.hasNext()) {
+				long id = 0;
+				ArrayList<Node> nodes = new ArrayList<Node>();
+				float occupancy = 0;
+				reader.beginObject();
+				while (reader.hasNext()) {
+					boolean isLineString = false;
+					String name = reader.nextName();
+					if (name.equals("id")) {
+						String stringid = reader.nextString();
+						int index = stringid.indexOf("_");
+						if (index == -1) {
+							id = Long.parseLong(stringid);
+						} else {
+							id = Long.parseLong(stringid.substring(0, index) + stringid.substring(index+1));
+						}
+					} else if (name.equals("loc")) {
+						reader.beginObject();
+						while (reader.hasNext()) {
+							name = reader.nextName();
+							if (name.equals("type")) {
+								isLineString = reader.nextString().equals(
+										"LineString");
+							} else if (name.equals("coordinates")
+									&& isLineString) {
+								reader.beginArray();
+								while (reader.hasNext()) {
+									Float d = null;
+									reader.beginArray();
+									while (reader.hasNext()) {
+										if (d == null) {
+											d = (float) reader.nextDouble();
+										} else {
+											nodes.add(new Node(++nodeid, d,
+													(float) reader.nextDouble()));
+											d = null;
+										}
+									}
+									reader.endArray();
+								}
+								reader.endArray();
+							}
+						}
+						reader.endObject();
+					} else if (name.equals("slots")) {
+						reader.beginObject();
+						while (reader.hasNext()) {
+							name = reader.nextName();
+							if (name.equals("left")) {
+								occupancy = reader.nextInt();
+							} else if (name.equals("right")) {
+								occupancy += reader.nextInt();
+							}
+						}
+						reader.endObject();
+					} else if (name.equals("load")) {
+						reader.beginObject();
+						float load = 0;
+						while (reader.hasNext()) {
+							name = reader.nextName();
+							if (name.equals("left")) {
+								load = reader.nextInt();
+							} else if (name.equals("right")) {
+								load += reader.nextInt();
+								occupancy = load / occupancy * 100;
+								if (occupancy > 100){
+									occupancy = 100;
+								}
+							}
+						}
+						reader.endObject();
+					} else {
+						reader.skipValue();
+					}
+				}
+				reader.endObject();
+				if (id > 0 && nodes.size() > 1) {
+					result.add(new Way(id, nodes, occupancy));
+				}
+			}
+			reader.close();
 		}
-		return null;
+		return result;
 	}
-	
+
 	private static boolean checkDate(Long timeinmilis, Context context) {
 		SharedPreferences settings = context.getSharedPreferences(
 				Constants.SETTINGS, Context.MODE_PRIVATE);

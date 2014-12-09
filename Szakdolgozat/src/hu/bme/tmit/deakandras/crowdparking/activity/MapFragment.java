@@ -339,10 +339,10 @@ public class MapFragment extends Fragment implements RouteActivity {
 				.setSize(0.1f).setColor(Color.GREEN).build();
 		pointStyleSet.setZoomStyle(minzoomForObjects, pointStyle);
 
-		geomLayer.add(new Point(new MapPos(19.055556, 47.481389),
-				new DefaultLabel(
-						"Budapesti Mûszaki és Gazdaságtudományi Egyetem"),
-				pointStyle, null));
+//		geomLayer.add(new Point(new MapPos(19.055556, 47.481389),
+//				new DefaultLabel(
+//						"Budapesti Mûszaki és Gazdaságtudományi Egyetem"),
+//				pointStyle, null));
 
 		new AsyncTask<Void, Void, List<Way>>() {
 
@@ -350,11 +350,19 @@ public class MapFragment extends Fragment implements RouteActivity {
 			protected List<Way> doInBackground(Void... params) {
 				List<Way> roads = new ArrayList<Way>();
 				try {
-					roads = ParkingDataLoader.getWays(context);
+					MapPos center = (new EPSG3857()).toWgs84(mapView.getFocusPoint().x, mapView.getFocusPoint().y);
+					double lat = center.y;
+					double lon = center.x;
+					double radius = 10000f / mapView.getZoom() + 1;
+					roads = ParkingDataLoader.getWays(context, lat, lon, radius);
 				} catch (ParserConfigurationException e) {
 					e.printStackTrace();
 				} catch (IOException e) {
 					e.printStackTrace();
+					Toast.makeText(
+							context,
+							"Unable to connect to server. Check your connection!",
+							Toast.LENGTH_LONG).show();
 				}
 				return roads;
 			}
@@ -535,16 +543,17 @@ public class MapFragment extends Fragment implements RouteActivity {
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		if (item.getItemId() == R.id.action_locate) {
-			if(myLocation != null){
-			mapView.setFocusPoint(mapView
-					.getLayers()
-					.getBaseLayer()
-					.getProjection()
-					.fromWgs84(myLocation.getLongitude(),
-							myLocation.getLatitude()));
-			return true;
+			if (myLocation != null) {
+				mapView.setFocusPoint(mapView
+						.getLayers()
+						.getBaseLayer()
+						.getProjection()
+						.fromWgs84(myLocation.getLongitude(),
+								myLocation.getLatitude()));
+				return true;
 			} else {
-				Toast.makeText(context, "location not found yet", Toast.LENGTH_LONG).show();
+				Toast.makeText(context, "location not found yet",
+						Toast.LENGTH_LONG).show();
 			}
 		}
 		return super.onOptionsItemSelected(item);
@@ -585,9 +594,9 @@ public class MapFragment extends Fragment implements RouteActivity {
 		Projection proj = mapView.getLayers().getBaseLayer().getProjection();
 		stopMarker.setMapPos(proj.fromWgs84(toLon, toLat));
 
-		Toast.makeText(context, "Calculating route...",
-				Toast.LENGTH_SHORT).show();
-		
+		Toast.makeText(context, "Calculating route...", Toast.LENGTH_SHORT)
+				.show();
+
 		new AsyncTask<Void, Void, GHResponse>() {
 
 			protected GHResponse doInBackground(Void... v) {
