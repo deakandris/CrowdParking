@@ -2,7 +2,6 @@ package hu.bme.tmit.deakandras.crowdparking.data;
 
 import hu.bme.tmit.deakandras.crowdparking.database.DatabaseManager;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -17,7 +16,6 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
@@ -30,8 +28,6 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.support.v4.util.ArrayMap;
 import android.util.JsonReader;
-import android.widget.Toast;
-
 import com.nutiteq.components.MapPos;
 
 public class ParkingDataLoader {

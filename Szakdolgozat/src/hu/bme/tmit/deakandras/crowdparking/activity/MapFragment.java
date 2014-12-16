@@ -53,7 +53,6 @@ import com.nutiteq.datasources.raster.MapsforgeRasterDataSource;
 import com.nutiteq.geometry.Geometry;
 import com.nutiteq.geometry.Line;
 import com.nutiteq.geometry.Marker;
-import com.nutiteq.geometry.Point;
 import com.nutiteq.projections.EPSG3857;
 import com.nutiteq.projections.EPSG4326;
 import com.nutiteq.projections.Projection;
