@@ -149,6 +149,7 @@ public class ParkingDataLoader {
 		return roads;
 	}
 	
+	@SuppressWarnings("unused")
 	private static List<Way> getWaysFromServer(final Context context, double lat, double lon, double maxDistance)
 			throws IOException {
 		List<Way> result = new ArrayList<Way>();
