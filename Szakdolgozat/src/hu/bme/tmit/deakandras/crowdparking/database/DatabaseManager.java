@@ -17,15 +17,15 @@ import android.support.v4.util.ArrayMap;
 import com.nutiteq.components.MapPos;
 
 public class DatabaseManager {
-
+	
 	private Context context;
 	private DatabaseHelper databaseHelper;
 	private SQLiteDatabase database;
-
+	
 	public DatabaseManager(Context context) {
 		this.context = context;
 	}
-
+	
 	/** Opens the database associated with the application. */
 	public void open(boolean writable) {
 		databaseHelper = new DatabaseHelper(context);
@@ -35,12 +35,12 @@ public class DatabaseManager {
 			database = databaseHelper.getReadableDatabase();
 		}
 	}
-
+	
 	/** Closes the database. */
 	public void close() {
 		databaseHelper.close();
 	}
-
+	
 	/**
 	 * Insert a single node element to the database.
 	 * 
@@ -53,11 +53,9 @@ public class DatabaseManager {
 		values.put(DatabaseConstants.KEY_NODE_ID, node.id);
 		values.put(DatabaseConstants.KEY_NODE_LAT, node.lat);
 		values.put(DatabaseConstants.KEY_NODE_LON, node.lon);
-		return database.insertWithOnConflict(
-				DatabaseConstants.NODES_TABLE_NAME, null, values,
-				SQLiteDatabase.CONFLICT_IGNORE);
+		return database.insertWithOnConflict(DatabaseConstants.NODES_TABLE_NAME, null, values, SQLiteDatabase.CONFLICT_IGNORE);
 	}
-
+	
 	/**
 	 * Insert a single way element to the database. This method does not insert
 	 * the referenced nodes.
@@ -72,13 +70,12 @@ public class DatabaseManager {
 		values.put(DatabaseConstants.KEY_WAY_OCCUPANCY, way.occupancy);
 		for (Node node : way.nodes) {
 			if (insertAssignment(node.id, way.id) == -1) {
-				throw new SQLException("Node #" + node.id
-						+ " doesn't exists in database");
+				throw new SQLException("Node #" + node.id + " doesn't exists in database");
 			}
 		}
 		return database.insert(DatabaseConstants.WAYS_TABLE_NAME, null, values);
 	}
-
+	
 	/**
 	 * Insert an assignment of an existing node and way to the database.
 	 * 
@@ -92,10 +89,9 @@ public class DatabaseManager {
 		ContentValues values = new ContentValues();
 		values.put(DatabaseConstants.KEY_WAY_NODE_NODEID, nodeid);
 		values.put(DatabaseConstants.KEY_WAY_NODE_WAYID, wayid);
-		return database.insert(DatabaseConstants.WAY_NODE_TABLE_NAME, null,
-				values);
+		return database.insert(DatabaseConstants.WAY_NODE_TABLE_NAME, null, values);
 	}
-
+	
 	public void insertAll(List<Way> ways) {
 		for (Way way : ways) {
 			for (Node node : way.nodes) {
@@ -104,50 +100,38 @@ public class DatabaseManager {
 			insertWay(way);
 		}
 	}
-
+	
 	public List<Way> getAll() {
 		List<Way> ways = new ArrayList<Way>();
 		Map<Long, MapPos> nodes = new ArrayMap<Long, MapPos>();
-
+		
 		// get every node from the database
-		Cursor cursor = database.query(DatabaseConstants.NODES_TABLE_NAME,
-				null, null, null, null, null, null);
+		Cursor cursor = database.query(DatabaseConstants.NODES_TABLE_NAME, null, null, null, null, null, null);
 		if (cursor != null && cursor.moveToFirst()) {
 			int idIndex = cursor.getColumnIndex(DatabaseConstants.KEY_NODE_ID);
-			int latIndex = cursor
-					.getColumnIndex(DatabaseConstants.KEY_NODE_LAT);
-			int lonIndex = cursor
-					.getColumnIndex(DatabaseConstants.KEY_NODE_LON);
+			int latIndex = cursor.getColumnIndex(DatabaseConstants.KEY_NODE_LAT);
+			int lonIndex = cursor.getColumnIndex(DatabaseConstants.KEY_NODE_LON);
 			do {
 				// and put them in a map
-				nodes.put(
-						cursor.getLong(idIndex),
-						new MapPos(cursor.getFloat(lonIndex), cursor
-								.getFloat(latIndex)));
+				nodes.put(cursor.getLong(idIndex), new MapPos(cursor.getFloat(lonIndex), cursor.getFloat(latIndex)));
 			} while (cursor.moveToNext());
 		}
-
+		
 		// get every way from the database
-		cursor = database.query(DatabaseConstants.WAYS_TABLE_NAME, null, null,
-				null, null, null, null);
+		cursor = database.query(DatabaseConstants.WAYS_TABLE_NAME, null, null, null, null, null, null);
 		if (cursor != null && cursor.moveToFirst()) {
 			int idIndex = cursor.getColumnIndex(DatabaseConstants.KEY_WAY_ID);
-			int occupancyIndex = cursor
-					.getColumnIndex(DatabaseConstants.KEY_WAY_OCCUPANCY);
+			int occupancyIndex = cursor.getColumnIndex(DatabaseConstants.KEY_WAY_OCCUPANCY);
 			do {
 				// create way from the data we know so far
-				Way way = new Way(cursor.getLong(idIndex),
-						new ArrayList<Node>(), cursor.getFloat(occupancyIndex));
+				Way way = new Way(cursor.getLong(idIndex), new ArrayList<Node>(), cursor.getFloat(occupancyIndex));
 				// and query the database for nodes that are assigned to this
 				// way
-				Cursor innerCursor = database.query(
-						DatabaseConstants.WAY_NODE_TABLE_NAME,
-						new String[] { DatabaseConstants.KEY_WAY_NODE_NODEID },
-						DatabaseConstants.KEY_WAY_NODE_WAYID + "=" + way.id,
-						null, null, null, null);
+				Cursor innerCursor = database.query(DatabaseConstants.WAY_NODE_TABLE_NAME,
+						new String[] { DatabaseConstants.KEY_WAY_NODE_NODEID }, DatabaseConstants.KEY_WAY_NODE_WAYID + "="
+								+ way.id, null, null, null, null);
 				if (innerCursor != null && innerCursor.moveToFirst()) {
-					int nodeIndex = innerCursor
-							.getColumnIndex(DatabaseConstants.KEY_WAY_NODE_NODEID);
+					int nodeIndex = innerCursor.getColumnIndex(DatabaseConstants.KEY_WAY_NODE_NODEID);
 					do {
 						// add the nodes with the given id from map
 						Long nodeid = innerCursor.getLong(nodeIndex);
@@ -160,44 +144,35 @@ public class DatabaseManager {
 		}
 		return ways;
 	}
-
+	
 	public double getOccupancy(Long wayid) {
 		double result = 0;
-		Cursor cursor = database.query(DatabaseConstants.WAYS_TABLE_NAME,
-				new String[] { DatabaseConstants.KEY_WAY_OCCUPANCY },
-				DatabaseConstants.KEY_WAY_ID + "=" + wayid, null, null, null,
-				null);
+		Cursor cursor = database.query(DatabaseConstants.WAYS_TABLE_NAME, new String[] { DatabaseConstants.KEY_WAY_OCCUPANCY },
+				DatabaseConstants.KEY_WAY_ID + "=" + wayid, null, null, null, null);
 		if (cursor != null && cursor.moveToFirst()) {
 			result = cursor.getDouble(0);
 		}
 		return result;
 	}
-
+	
 	public long getNodeId(double lat, double lon) {
 		long result = -1;
-		Cursor cursor = database.query(DatabaseConstants.NODES_TABLE_NAME,
-				new String[] { DatabaseConstants.KEY_NODE_ID },
-				DatabaseConstants.KEY_NODE_LAT + "=" + lat + " AND "
-						+ DatabaseConstants.KEY_NODE_LON + "=" + lon, null,
-				null, null, null);
+		Cursor cursor = database.query(DatabaseConstants.NODES_TABLE_NAME, new String[] { DatabaseConstants.KEY_NODE_ID },
+				DatabaseConstants.KEY_NODE_LAT + "=" + lat + " AND " + DatabaseConstants.KEY_NODE_LON + "=" + lon, null, null,
+				null, null);
 		if (cursor != null && cursor.moveToFirst()) {
 			result = cursor.getLong(0);
 		}
 		return result;
 	}
-
+	
 	public long getWayId(long nodeid1, long nodeid2) {
 		long result = -1;
-		Cursor cursor = database
-				.query(DatabaseConstants.WAY_NODE_TABLE_NAME,
-						new String[] { DatabaseConstants.KEY_WAY_NODE_WAYID },
-						DatabaseConstants.KEY_WAY_NODE_NODEID + "=" + nodeid1
-								+ " OR "
-								+ DatabaseConstants.KEY_WAY_NODE_NODEID + "="
-								+ nodeid2, null,
-						DatabaseConstants.KEY_WAY_NODE_WAYID, "COUNT(*) > 1",
-						null);
-		if (cursor != null && cursor.moveToFirst()){
+		Cursor cursor = database.query(DatabaseConstants.WAY_NODE_TABLE_NAME,
+				new String[] { DatabaseConstants.KEY_WAY_NODE_WAYID }, DatabaseConstants.KEY_WAY_NODE_NODEID + "=" + nodeid1
+						+ " OR " + DatabaseConstants.KEY_WAY_NODE_NODEID + "=" + nodeid2, null,
+				DatabaseConstants.KEY_WAY_NODE_WAYID, "COUNT(*) > 1", null);
+		if (cursor != null && cursor.moveToFirst()) {
 			result = cursor.getLong(0);
 		}
 		return result;

@@ -12,12 +12,12 @@ public class Way {
 	
 	public List<MapPos> getNodesAsMapPos() {
 		List<MapPos> mapPosList = new ArrayList<MapPos>();
-		for(Node node : nodes) {
+		for (Node node : nodes) {
 			mapPosList.add(new MapPos(node.lon, node.lat));
 		}
 		return mapPosList;
 	}
-
+	
 	public Way(long id) {
 		this.id = id;
 		nodes = new ArrayList<Node>();
@@ -35,7 +35,7 @@ public class Way {
 		this.nodes = nodes;
 		this.occupancy = occupancy;
 	}
-
+	
 	@Override
 	public String toString() {
 		return occupancy + "% " + nodes.toString();
